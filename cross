@@ -1,0 +1,10 @@
+$ GOOS=linux GOARCH=arm go build -o kernel_deb_downloader_arm .
+$ file kernel_deb_downloader_arm
+kernel_deb_downloader_arm: ELF 32-bit LSB  executable, ARM, EABI5 version 1 (SYSV), statically linked, not stripped
+$ GOOS=linux GOARCH=arm64 go build -o kernel_deb_downloader_arm64 .
+$ file kernel_deb_downloader_arm64 
+kernel_deb_downloader_arm64: ELF 64-bit LSB  executable, ARM aarch64, version 1 (SYSV), statically linked, not stripped
+$ GOOS=windows GOARCH=amd64 go build -o kernel_deb_downloader_win .
+$ file kernel_deb_downloader_win
+kernel_deb_downloader_win: PE32+ executable (console) x86-64 (stripped to external PDB), for MS Windows
+

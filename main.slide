@@ -1,0 +1,813 @@
+Should we Go?
+
+Paryk Małek
+Network Software Engineer, Intel
+http://github.com/pmalek
+
+#####################################################################
+
+* What is Go anyway?
+
+Should we really bother?
+
+.image gopher.svg 400 _
+.caption Gopher by [[http://reneefrench.blogspot.com/][Renee French]]
+
+#####################################################################
+
+* History - quick recap
+
+Go project was started in late 2007 by Google engineers: Robert Griesemer, Rob Pike and Ken Thompson.
+
+It was first announced outside Google on [[https://opensource.googleblog.com/2009/11/hey-ho-lets-go.html][November 10, 2009 on opensource.googleblog.com]]
+
+Go 1.0 was released in March 2012.
+
+Originally written in C but as of Go 1.5 (August 2015) written in Go (with some assembler parts)
+
+: Later on Russ Cox and Ian Taylor joined the team.
+
+: After the initial release Go averages around 2 releases per year
+
+#####################################################################
+
+* Why yet another language?
+
+Original goals:
+
+- simplicity
+- productive and readable
+- compiled, statically typed
+- scalable to large systems (as Java and C++)
+- speed - both at runtime and compilation
+- supporting networking and multiprocessing
+
+: Building Go (as of 1.9)
+: on my PC it takes around 23s to build WHOLE toolchain, with all libraries (1268120 lines of code) (standard, net, io, http, regex, tls), race detector, linting tools; you name it
+: In later interviews, all three of original language designers cited their shared dislike of C++'s complexity as a primary motivation for designing a new language.
+
+#####################################################################
+
+* Purpose?
+
+    It's really a get sh*t done language.
+
+.caption Brad Fitzpatrick @ [[https://www.youtube.com/watch?v=4Dr8FXs9aJM][GopherCon India 2016]]
+
+.image gopher_plane.jpg 400 _
+.caption Gopher by [[https://golang.org/doc/gopher/][golang.org]]
+
+#####################################################################
+
+* Simplicity?
+
+#####################################################################
+
+* Toolchain
+
+`go` commands:
+
+  build       compile packages and dependencies
+  clean       remove object files
+  doc         show documentation for package or symbol
+  env         print Go environment information
+  bug         start a bug report
+  fix         run go tool fix on packages
+  fmt         run gofmt on package sources
+  generate    generate Go files by processing source
+  get         download and install packages and dependencies
+  install     compile and install packages and dependencies
+  list        list packages
+  run         compile and run Go program
+  test        test packages
+  tool        run specified go tool
+  version     print Go version
+  vet         run go tool vet on packages
+
+: doc - generate documentation from your source - kinda like Doxygen but builtin and FAST
+  
+#--------------------------------------------------------------------
+
+* Toolchain, cont.
+
+Built in tools? plenty!
+
+  $ go tool
+  addr2line
+  api
+  asm
+  cgo
+  compile
+  cover
+  dist
+  doc
+  fix
+  link
+  nm
+  objdump
+  pack
+  pprof
+  tour
+  trace
+  vet
+
+: cover - generate coverage resports from your tests
+: pprof - built-in profiling tool (really powerful - you can connect it to many other tools for visualization etc.)
+: vet - starts where compiler ends - it examines Go source code and reports suspicious constructs, such as Printf calls whose arguments do not align with the format string
+
+#--------------------------------------------------------------------
+
+* Toolchain, cont.
+
+To build:
+
+  go build
+
+To run (build to temp directory and run):
+
+  go run
+
+To get dependencies:
+
+  go get github.com/goloang/go
+
+To run all tests in a directory (recursively):
+
+  go test ./...
+
+#--------------------------------------------------------------------
+
+* Toolchain helps you write code
+
+You cannot declare a variable and not use it:
+
+.play -edit unused_var/main.go
+
+: you can achieve similar effect in e.g. C++ but it's not deafult - you have to add compiler flags 
+
+#--------------------------------------------------------------------
+
+* Toolchain helps you write code - gofmt
+
+Gofmt is a one of the tools from the toolchain that automatically formats your code.
+
+In Go you cannot compile code that doesn't adhere to gofmt
+
+.play -edit gofmt/main.go
+
+Gofmt'd code is:
+
+- easier to write: never worry about minor formatting concerns,
+- easier to read
+- easier to maintain
+- uncontroversial: never have a debate about spacing or brace position ever again!
+
+: I have gofmt mapped to save command in my editor so every time I save a .go file I gomft - I don't think about the style
+: My editors provide this out of the box
+
+: 2 when all code looks the same you don't need to mentally convert others' formatting style into something you can understand,
+: 3 mechanical changes to the source don't cause unrelated changes to the file's formatting; diffs show only the real changes,
+
+#####################################################################
+
+* Golang keywords
+
+From [[https://golang.org/ref/spec#Keywords]]:
+
+  break        default      func         interface    select
+  case         defer        go           map          struct
+  chan         else         goto         package      switch
+  const        fallthrough  if           range        type
+  continue     for          import       return       var
+
+
+#####################################################################
+
+* No private, protected, public etc.
+
+  package zoo
+
+  // lion is unexported - can only be used in this package
+  type lion struct {}
+
+  // Tiger is exported - can be used in other packages
+  type Tiger struct {}
+
+Other package:
+
+  package main
+
+  import "zoo"
+
+  func main(){
+    l := zoo.lion{} // compile error
+    t := zoo.Tiger{}
+  }
+
+error:
+
+  .\main.go:6:7: cannot refer to unexported name zoo.lion
+  .\main.go:6:7: undefined: zoo.lion
+
+#####################################################################
+
+* It's simple we get it! But what can it do?
+
+#####################################################################
+
+* Go's main (opinionated) features?
+
+- interface system
+- goroutines
+- channels
+- statically linked binaries (yes you heard me right)
+
+#####################################################################
+
+* Interface system
+
+Go provides two features in place of inheritance:
+
+_Type_embedding_ - a form of composition/non-virtual inheritance
+
+_Interfaces_ - a form of virtual inheritance.
+
+: The idea behind interfaces is to make data structures and interfaces (their methods) ORTHOGONAL
+: So in Go, when you write an API for you package/service/whatever
+
+#####################################################################
+
+* Embedding
+
+  type Job struct {
+    Command string
+    *log.Logger
+  }
+
+Embedding a `log.Logger` in a `Job` allows us to use `log.Logger` methods on `Job` instances:
+
+  job.Log("starting now...")
+
+: You might think about embedding as an alternative to non-virtual inheritance that you might all know from other languages
+
+#--------------------------------------------------------------------
+
+* Interfaces
+
+.play -edit interfaces1/main.go
+
+#--------------------------------------------------------------------
+
+* Interfaces, cont.
+
+  package io
+
+  type Reader interface {
+    Read(p []byte) (n int, err error)
+  }
+
+  type Writer interface {
+    Write(p []byte) (n int, err error)
+  }
+
+Composing interfaces? That easy:
+
+  package io
+
+  type ReadWriter interface {
+    Reader
+    Writer
+  }
+
+: Go promotes small interfaces instead of big ones - which allows for easier:
+: * adoption of new types to algorithms requiring these interfaces, e.g. io.Copy(Writer, Reader)
+: * minimizes the requirements for argument types
+: If we peek inside the standard library in io package we will find plenty of small interfaces like io.Reader or io.Writer all over the place
+: this allows very little overhead over types that you write but want to use with standard algorithms/packages/functions
+
+#--------------------------------------------------------------------
+
+* Interfaces, cont.
+
+  package io
+
+  func Copy(dst Writer, src Reader) (written int64, err error)
+
+.play -edit interfaces_iocopy/main.go
+
+: you might think that this is nothing big but ... (next slide)
+
+#--------------------------------------------------------------------
+
+* Interfaces - POD with methods
+
+  package fmt
+
+  type Stringer interface {
+      String() string
+  }
+
+.play -edit pod_methods/main.go
+
+: ... what about POD types that can have methods and fullfil interfaces?
+
+#--------------------------------------------------------------------
+
+* Interfaces - functions with methods, wait what!?
+
+  package http
+
+  type Handler interface {
+    ServeHTTP(ResponseWriter, *Request)
+  }
+
+  // ...
+  
+  type HandlerFunc func(ResponseWriter, *Request)
+
+  // ServeHTTP calls f(w, r).
+  func (f HandlerFunc) ServeHTTP(w ResponseWriter, r *Request) {
+    f(w, r)
+  }
+
+#####################################################################
+
+* goroutines
+
+: concurrency is at the heart of Go and goroutines are one of the tools that solves a lot of problems with it
+: it's not only supported at library level but also at the language level
+
+: goroutine, a type of light-weight, user space thread
+
+#--------------------------------------------------------------------
+
+* goroutines - "userspace light weight threads"
+
+Lightweight?
+
+- 2KB initial stack space - grows/shrinks automatically
+- very cheap 'goroutine context switching'
+- from Go 1.3 contiguous stacks
+
+: So with 2KB initial stack space, a server handling incoming requests can therefore create one goroutine per request without a problem,
+: but one OS thread per request in this scenario would most likely lead to excessive memory consumption and abusive context switching
+
+: Context switching between goroutines is very cheap - it basically involves swapping of instruction pointer and several registers - way less than OS thread
+
+#--------------------------------------------------------------------
+
+* goroutines - "userspace light weight threads"
+
+.image sched1.jpg 170 _
+.caption [[https://morsmachine.dk/go-scheduler][Morsing's Blog]]
+
+: Why create a userspace scheduler when the operating system can schedule threads for you? * threads can have their own signal mask, CPU affinity etc. etc.
+: * OS can't make informed scheduling decisions
+
+: The triangle represents an OS thread - it's the thread of execution managed by the OS and works pretty much like your standard POSIX thread, called M for machine
+
+: The circle represents a goroutine - It includes the stack, the instruction pointer and other information important for scheduling goroutines, called a G
+
+: The rectangle/square represents a context for scheduling - You can look at it as a localized version of the scheduler which runs Go code on a single thread. In runtime code, it's called P for processor. 
+: It's the important part that lets us go from a N:1 scheduler to a M:N scheduler - similar in some ways to scheduling in Erlang I'm told
+
+#--------------------------------------------------------------------
+
+* goroutines, cont.
+
+.image sched2.jpg 530 _
+.caption [[https://morsmachine.dk/go-scheduler][Morsing's Blog]]
+
+: The greyed out goroutines are not running, but ready to be scheduled. They're arranged in lists called runqueues.
+: Goroutines are added to the end of a runqueue whenever a goroutine executes a go statement.
+: Once a context has run a goroutine until a scheduling point, it pops a goroutine off its runqueue, sets stack and instruction pointer and begins running the goroutine.
+
+: GOMAXPROCS environment variable defines how many contexts - Ps - we will have in runtime; by default equals the amount of logical cores on your machine
+
+#--------------------------------------------------------------------
+
+* goroutines - syscalls
+
+.image sched3.jpg 530 _
+.caption [[https://morsmachine.dk/go-scheduler][Morsing's Blog]]
+
+: You might wonder now: why have contexts at all? Can't we just put the runqueues on the threads and get rid of contexts?
+: Not really. The reason we have contexts is so that we can hand them off to other threads if the running thread needs to block for some reason.
+: An example of when we need to block, is when we call into a syscall or perform some IO
+: Since a thread cannot both be executing code and be blocked on a syscall, we need to hand off the context so it can keep scheduling.
+
+#--------------------------------------------------------------------
+
+* goroutines in code
+
+.play -edit goroutine1/main.go
+
+: opposite to C++'s threads, goroutines are automatically ended (without an explicit .join() or .detach())
+: and resources are deallocated instead of a terminate() being called
+
+#--------------------------------------------------------------------
+
+* goroutines in code
+
+.play -edit goroutine2/main.go
+
+#--------------------------------------------------------------------
+
+* goroutines in code - anonymous functions
+
+.play -edit goroutine3/main.go
+
+#####################################################################
+
+* Channels
+
+: now we come to the last, important construct in Go - channels.
+
+#--------------------------------------------------------------------
+
+* Channels, cont.
+
+Don't
+_communicate_by_sharing_memory_
+Do
+_share_memory_by_communicating_
+
+: channels are built into the language
+: they promote a saying: don't communicate by sharing memory, share memory by communicating
+
+: as mentioned before, Go's standard library is quite comprehensive and it includes a lot of classical concurrency control structures like mutexes, locks etc. but idiomatic Go programs are written using channels instead
+
+: if your Go code contains locks, mutexes or any other synchronization primitives - it's probably a code smell somewhere in your project
+
+#--------------------------------------------------------------------
+
+* Channels, cont.
+
+.play -edit channels1/main.go
+
+: Channels are typed, so that a channel of type chan T can only be used to transfer messages of type T
+
+: Special syntax is used to operate on them
+: <-ch is an expression that causes the executing goroutine to block until a value comes in over the channel ch, 
+: ch <- x sends the value x (possibly blocking until another goroutine receives the value)
+
+: READING FROM AND WRITING TO channels IS THREAD SAFE
+
+#--------------------------------------------------------------------
+
+* Channels - read only/write only
+
+.play -edit channels2/main.go
+
+#--------------------------------------------------------------------
+
+* Channels - select statement
+
+.play -edit channels_select/main.go
+
+: select statement is a simple yet powerful switch/case equivalent for concurrency
+: The built-in switch-like "select" statement can be used to implement non-blocking communication on multiple channels
+
+#--------------------------------------------------------------------
+
+* Channels - built in deadlock detector
+
+.play -edit channels_deadlock/main.go
+
+: There are numeruous use cases for channels, and one good example would be something like a news/market data feed
+: You return a channel and then (in a separate goroutine) listen for values on that channel
+
+#--------------------------------------------------------------------
+
+* Channels - more real life example
+
+.code channels_ping/main.go /^func main/,/^}/
+.play -edit channels_ping/main.go /^func player/,/^}/
+.caption [[https://talks.golang.org/2013/advconc.slide#6][Advanced Go Concurrency Patterns by Sameer Ajmani]]
+
+#####################################################################
+
+* Cross compilation toolchain headache? Not a problem!
+
+#####################################################################
+
+* Cross compilation toolchain headache? Not a problem!
+
+With Go, in order to cross compile just add OS and arch to build command:
+
+    GOOS=linux GOARCH=arm go build
+
+Supoorted OSs? Quite a few: android, darwin, freebsd, linux, windows, netbsd...
+
+Architectures?  386, amd64, arm, arm64, mips, mips64, ppc64...
+
+[[https://golang.org/doc/install/source#environment][Full list]]
+
+: For instance lately I wanted to run a small server on my router to allow connections from within my network
+: All I needed to do in order to build it for my Linux/ARM router was to snap a GOOS=linux GOARCH=arm to go build
+: and voila
+
+#####################################################################
+
+* Cross compilation toolchain headache? Not a problem! cont.
+
+  $ GOOS=linux GOARCH=arm go build -o kernel_deb_downloader_arm .
+  $ file kernel_deb_downloader_arm
+  kernel_deb_downloader_arm: ELF 32-bit LSB  executable, ARM, EABI5 version 1 (SYSV), statically linked, not stripped
+  $ GOOS=linux GOARCH=arm64 go build -o kernel_deb_downloader_arm64 .
+  $ file kernel_deb_downloader_arm64 
+  kernel_deb_downloader_arm64: ELF 64-bit LSB  executable, ARM aarch64, version 1 (SYSV), statically linked, not stripped
+  $ GOOS=windows GOARCH=amd64 go build -o kernel_deb_downloader_win .
+  $ file kernel_deb_downloader_win
+  kernel_deb_downloader_win: PE32+ executable (console) x86-64 (stripped to external PDB), for MS Windows
+
+#####################################################################
+
+* Build constraints / conditional compilation
+
+Want to allow a particular file to be built only on particular platform/architecture?
+
+Add a comment near the top of the file:
+
+    // +build linux darwin !freebsd,arm
+    // +build 386
+
+or name it with a suffix
+
+- `file_linux.go`
+- `file_freebsd_arm.go`
+- `file_windows_amd64.go`
+
+#####################################################################
+
+* Stack or heap? Escape analysis!
+
+#####################################################################
+
+* Stack or heap? Escape analysis!
+
+Go runtime decides whether to put variables on the stack or on the heap.
+
+  package main
+
+  var globalPtr *int
+
+  func f() {
+    var x int
+    globalPtr = &x
+  }
+
+  func main() {
+    f()
+  }
+
+To see compiler’s escape analysis build/run with the `-gcflags=-m -l`
+
+  go run -gcflags="-m -l" main.go
+  .\main.go:7:14: &x escapes to heap
+  .\main.go:6:6: moved to heap: x
+
+: Escape analysis determines whether any references to a value escape the function in which the value is declared
+: If no references escape, the value may be safely stored on the stack.
+: Obvious: Values stored on the stack do not need to be allocated or freed.
+
+: Because escape analysis is performed at compile time, it helps, NOT impedes the runtime
+
+#####################################################################
+
+* Stack or heap? Escape analysis!, cont.
+
+  package main
+
+  type youShallNotEscape struct {
+    num int
+  }
+
+  func main() {
+    y := new(youShallNotEscape)
+    y.num = 2
+  }
+
+Even explicitly `new`d variables might be allocated on stack if there's no need for a heap allocation!
+
+  go run -gcflags="-m -l" main.go
+  .\main.go:8:10: main new(youShallNotEscape) does not escape
+  
+#####################################################################
+
+* cgo
+
+`cgo` enables the creation of Go packages that call C code.
+
+.code cgo1/main.go
+
+You can control whether to use cgo using CGO_ENABLED environment variable
+
+  CGO_ENABLED=0 go build
+
+: By default is on
+: Go's internal implementation (some packages) depend on libc - so e.g. if you use 'net' library you will depend on libc
+
+: As mentioned before all Go executables are statically linked
+: disabling cgo (as on the slide) will produce 100% statically linked binaries 
+
+: Combining this with cross compilation built into the Go toolchain means that you produce artifacts for all architectures that you support using one system
+
+#####################################################################
+
+* cgo - calling Go from C
+
+  import "fmt"
+
+  /*
+  #include <stdio.h>
+  extern void ACFunction();
+  */
+  import "C"
+
+  //export AGoFunction
+  func AGoFunction() {
+    fmt.Println("AGoFunction()")
+  }
+
+  func Example() {
+    C.ACFunction()
+  }
+
+foo.c:
+
+  #include "_cgo_export.h"
+  void ACFunction() {
+    printf("ACFunction()\n");
+    AGoFunction();
+  }
+
+#####################################################################
+
+* Performance comparison example with C++?
+
+How about HTTP server?
+
+#####################################################################
+
+* What?
+
+.image web_dev_assembly.png 540 _
+
+#####################################################################
+
+* What?
+
+.image drivers_js.png 540 _
+
+#####################################################################
+
+* Let's put boost::beast to test
+
+.image beast.png _ 1000
+
+#####################################################################
+
+* Golang http server
+
+.play -edit golang_http/main.go
+
+#####################################################################
+
+* C++ + boost + beast http server?
+
+Well... kinda a bit more complicated:
+
+  // std, boost and beast includes...
+
+  namespace http = boost::beast::http; // from <boost/beast/http.hpp>
+
+  template <class Body, class Allocator, class Send>
+  void handle_request(http::request<Body, http::basic_fields<Allocator>>&& req, Send&& send) {
+    // some error checking here ...
+    // ...
+
+    http::response<http::string_body> res{http::status::ok, req.version()};
+    res.body() = "hello";
+    res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
+    res.set(http::field::content_type, "text/plain");
+    res.prepare_payload();
+    res.keep_alive(req.keep_alive());
+    return send(std::move(res));
+  }
+
+#####################################################################
+
+* C++ + boost + beast http server? cont.
+
+  // Handles an HTTP server connection
+  class session : public std::enable_shared_from_this<session> {
+    // This is the C++11 equivalent of a generic lambda.
+    // The function object is used to send an HTTP message.
+    struct send_lambda {
+      session& self_;
+
+      explicit send_lambda(session& self) : self_(self) {}
+
+      template <bool isRequest, class Body, class Fields>
+      void operator()(http::message<isRequest, Body, Fields>&& msg) const {
+        // The lifetime of the message has to extend for the duration
+        // of the async operation so we use a shared_ptr to manage it.
+        auto sp = std::make_shared<http::message<isRequest, Body, Fields>>(std::move(msg));
+
+        // ...
+      }
+    };
+
+  // ...
+  }
+
+#####################################################################
+
+* C++ + boost + beast http server? cont.
+
+  // Handles an HTTP server connection
+  class session : public std::enable_shared_from_this<session> {
+
+    // ...
+
+  public:
+    // Take ownership of the socket
+    explicit session(tcp::socket socket)
+        : socket_(std::move(socket)), strand_(socket_.get_io_service()), lambda_(*this) {}
+
+    // Start the asynchronous operation
+    void run() { do_read(); }
+
+    void do_read() {
+      // Read a request
+      http::async_read(
+          socket_,
+          buffer_,
+          req_,
+          strand_.wrap(std::bind(
+              &session::on_read, shared_from_this(), std::placeholders::_1, std::placeholders::_2)));
+    }
+    // ...
+  }
+
+#####################################################################
+
+* HTTP server comparison
+
+.image golang_http_chart.png 260 _
+.image cpp_http_chart.png 260 _
+
+#####################################################################
+
+* Successful stories with Go?
+
+- [[dl.google.com]] - rewritten from C++ to Go - [[https://talks.golang.org/2013/oscon-dl.slide][OSCON 2013 talk]]
+
+.image dl_google.png _ 700
+.caption [[https://talks.golang.org/2013/oscon-dl.slide#9][dl.google.com: Powered by Go by Brad Fitzpatrick]]
+
+: code was too complicated
+: C++ single-threaded event-based, callback spaghetti
+: hard to know when/where code was running, or what "blocking" meant
+: dl.google.com after rewrite - much less memory, ability to scale, instant startup (no 24 hour startup delay)
+
+#####################################################################
+
+* Successful stories with Go? cont.
+- ...
+- docker
+- kubernetes
+- etcd
+- InfluxDB
+- CloudFlare's distributed DNS service
+- syncthing
+- many more...
+
+: CloudFlare you might have not noticed this one but it's a huge infrastructure that you are using transparently
+: Syncthing - continuous file synchronization program. It synchronizes files between two or more computers
+
+#####################################################################
+
+* Companies using Go
+
+- Google (obviously, duh!)
+- Digital Ocean
+- Canonical - e.g. juju
+- heroku
+- MongoDB
+- many more...
+
+Full list: [[https://github.com/golang/go/wiki/GoUsers]]
+
+: Canonical juju - Deploy, configure, scale and operate your software on public/private clouds
+
+#####################################################################
+
+* Conclusion
+
+Next time you pick a tool for a job, consider Go.
+
+Maybe its simplicity turns out to be beneficial for you and your sanity!
+
+: While Go might not! be a good fit for everyone or every other project out there it can definately help you out
